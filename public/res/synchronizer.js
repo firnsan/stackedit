@@ -10,7 +10,8 @@ define([
     "providers/dropboxProvider",
     "providers/gdriveProvider",
     "providers/gdrivesecProvider",
-    "providers/gdriveterProvider"
+    "providers/gdriveterProvider",
+	"providers/evernoteProvider"
 ], function($, _, utils, storage, eventMgr, fileSystem, fileMgr, Provider) {
 
     var synchronizer = {};

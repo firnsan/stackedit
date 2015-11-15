@@ -26,6 +26,8 @@ app.post('/pdfExport', require('./pdf').export);
 app.post('/sshPublish', require('./ssh').publish);
 app.post('/picasaImportImg', require('./picasa').importImg);
 app.get('/downloadImport', require('./download').importPublic);
+app.get('/yinxiang/test', require('./yinxiang').test);
+app.get('/yinxiang/callback', require('./yinxiang').callback);
 
 app.use(function(req, res, next) {
 	res.renderDebug = function(page) {

@@ -1,4 +1,4 @@
-var spawn = require('child_process').spawn;
+﻿var spawn = require('child_process').spawn;
 var fs = require('fs');
 var path = require('path');
 var os = require('os');
@@ -66,7 +66,7 @@ exports.export = function(req, res, next) {
 			(payments.chargeOption && payments.chargeOption.alias == 'once') ||
 			(payments.subscriptionOption && payments.subscriptionOption.alias == 'yearly'));
 		if(err || paymentsRes.statusCode != 200 || !authorized) {
-			return onUnauthorizedError();
+			//return onUnauthorizedError();
 		}
 		var options, params = [];
 		try {
@@ -102,7 +102,8 @@ exports.export = function(req, res, next) {
 
 		// Page size
 		params.push('--page-size', authorizedPageSizes.indexOf(options.pageSize) === -1 ? 'A4' : options.pageSize);
-
+		
+		
 		// Use a temp file as wkhtmltopdf can't access /dev/stdout on Amazon EC2 for some reason
 		var filePath = path.join(os.tmpDir(), Date.now() + '.pdf');
 		var binPath = process.env.WKHTMLTOPDF_PATH || 'wkhtmltopdf';

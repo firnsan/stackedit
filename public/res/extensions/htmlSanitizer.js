@@ -32,7 +32,7 @@ define([
 	 */
 
 	var aHrefSanitizationWhitelist = /^\s*(https?|ftp|mailto|tel|file):/,
-		imgSrcSanitizationWhitelist = /^\s*(https?|ftp|file):|data:image\//;
+		imgSrcSanitizationWhitelist = /^\s*(https?|ftp|file|duck):|data:image\//;
 
 	function sanitizeUri(uri, isImage) {
 		var regex = isImage ? imgSrcSanitizationWhitelist : aHrefSanitizationWhitelist;
@@ -362,6 +362,11 @@ define([
 						var isImage = (tag === 'img' && lkey === 'src') || (lkey === 'background');
 						if(validAttrs[lkey] === true &&
 							(uriAttrs[lkey] !== true || uriValidator(value, isImage))) {
+							if (value.match(/^duck:/)) {
+								var name = value.replace(/^duck:/,'');
+								value = localStorage["file_"+name] || '';
+								out(' duckfile="' + name + '"');
+							}
 							out(' ');
 							out(key);
 							out('="');

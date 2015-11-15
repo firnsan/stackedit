@@ -1,4 +1,4 @@
-/* jshint -W084, -W099 */
+﻿/* jshint -W084, -W099 */
 // Credit to http://dabblet.com/
 define([
 	'jquery',
@@ -26,7 +26,6 @@ define([
 	var previewElt;
 	var pagedownEditor;
 	var trailingLfNode;
-
 	var refreshPreviewLater = (function() {
 		var elapsedTime = 0;
 		var timeoutId;
@@ -398,7 +397,7 @@ define([
 	}
 
 	editor.adjustCursorPosition = adjustCursorPosition;
-
+	
 	var textContent;
 
 	function setValue(value) {
@@ -879,10 +878,41 @@ define([
 			.on('paste', function(evt) {
 				undoMgr.currentMode = 'paste';
 				evt.preventDefault();
-				var data = (evt.originalEvent || evt).clipboardData.getData('text/plain') || prompt('Paste something...');
-				data = escape(data);
-				adjustCursorPosition();
-				document.execCommand('insertHtml', false, data);
+				var underEvent = evt.originalEvent || evt;
+
+				var data = underEvent.clipboardData.getData('text/plain');
+				if (data) {
+					data = escape(data);
+					adjustCursorPosition();
+					document.execCommand('insertHtml', false, data);
+					return;	
+				}
+				var i = 0;
+				var item;
+				for (; i<underEvent.clipboardData.items.length; i++) {
+					item = underEvent.clipboardData.items[i];
+					if (item.type.match(/^image\//i)) {
+						break;
+					}	
+				}
+				if (i != underEvent.clipboardData.items.length) {
+					var blob = item.getAsFile(),reader = new FileReader();  
+					reader.onload = function() {
+						var name = Date.parse(new Date()) + '.png';
+						var dataURI = event.target.result;
+						localStorage["file_"+name] = dataURI;
+						var duckURL = "duck:" + name;
+						var data = '![alt text]('+ duckURL + ' "title")\n';
+						adjustCursorPosition();
+						document.execCommand('insertHtml', false, data);
+					};  
+					reader.readAsDataURL(blob);
+				}
+				
+			})
+			.on('copy', function(evt) {
+				evt.preventDefault();
+				action('setClipboard', evt.originalEvent || evt);
 			})
 			.on('cut', function() {
 				undoMgr.currentMode = 'cut';
@@ -915,6 +945,105 @@ define([
 
 		var indentRegex = /^ {0,3}>[ ]*|^[ \t]*(?:[*+\-]|(\d+)\.)[ \t]|^\s+/;
 		var actions = {
+
+			setClipboard: function(state, evt) {
+				var parseInfo = function(word, grammer, info) {
+					if (!grammer) {
+						return;
+					}
+					for (var token in grammer) {
+						if(!grammer[token]) {
+							continue;
+						}
+						var pattern = grammer[token];	
+						pattern = pattern.pattern || pattern;
+						var match = word.match(pattern);
+						if (!match) {
+							continue;
+						}
+						
+						for (var i=0; i<match.length; i++) {
+							if (info instanceof Array) { // 获取附件类型
+								var len = info.push({
+									'type' : token, 
+									'info' : match[i],
+									'inside' : {}
+								});
+								parseInfo(match[i], grammer[token].inside, info[len -1].inside);
+							} else { // 附件属性
+								info[token] = match[i];
+							}
+						}
+					}
+				};
+				var md = {};
+				md.content = '';
+				md.footer = '';
+				md.grammer = {
+					img : {
+						pattern: /!\[[^\]]*\]\(\s*duck:[^\)]+\)/g,
+						inside: {
+							"img-alt": /[^\[]+(?=\])/,
+							"img-title": /(['‘][^'’]*['’]|["“][^"”]*["”])(?=\)$)/,
+							"img-src": /\s*duck:[^\s]*/,
+						},
+						handler: function(prop) {
+							if (!prop["img-src"]) {
+								return;
+							}
+							var match = prop["img-src"].match(/[^duck:\s]+/);
+							if (!match) {
+								return;
+							}
+							var lskey = 'file_' + match[0]; 
+							var dataURI = localStorage[lskey];
+							if (!dataURI) {
+								return;
+							}
+							var content = '![' + prop["img-alt"] + '][' + prop["img-src"] + ']';
+							var footer = '[' + prop["img-src"] + ']:' + dataURI;
+							return {'content':content, 'footer':footer};
+						}
+					}
+				};
+				md.processLine = function(line) {
+					var	content = line,
+						footer = '';
+					var parsedInfo = [];
+					parseInfo(line, this.grammer, parsedInfo);				
+					for (var i=0; i<parsedInfo.length; i++){
+						var file = parsedInfo[i],
+							type = file.type,
+							info = file.info;
+
+						var data = this.grammer[type].handler(file.inside);
+						if (data) {
+							content = content.replace(info, data.content); //覆盖
+							footer += data.footer; //追加
+							footer += '\n\n';
+						}
+					}
+					this.content += content;
+					this.footer += footer;
+				};
+				md.replace = function(text) {
+					var that = this;
+					text.split('\n').forEach(function(line) {
+						if(line) {
+							that.processLine(line);
+						}
+						that.content += '\n';
+					});
+					if (this.footer) {
+						return this.content + '\n\n\n' + this.footer;
+					} else {
+						return this.content;
+					}
+				};
+				var text = md.replace(state.selection);
+				evt.clipboardData.setData('text/plain', text);
+			},
+			
 			indent: function(state, options) {
 				function strSplice(str, i, remove, add) {
 					remove = +remove || 0;
